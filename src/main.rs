@@ -139,11 +139,26 @@ fn generate_test_3() -> anyhow::Result<bool> {
 }
 
 
+fn generate_test_file(n: i64) -> anyhow::Result<bool> {
+    let path = "test.rdb";
+    let mut tree = generate_new_tree(path)?;
+    for i in 0..n {
+        let key = number_to_words(i);
+        let value = "1";
+        tree.try_insert(key, value)?;
+    }
+    let final_id = tree.try_reattach()?;
+    println!("{:?}", final_id);
+    Ok(true)
+}
+
+
 
 fn main() -> anyhow::Result<()> {
-    let _result = generate_test_1();
-    let _result = generate_test_2();
-    let _result = generate_test_3();
+    // let _result = generate_test_1();
+    // let _result = generate_test_2();
+    // let _result = generate_test_3();
+    let _result = generate_test_file(10);
 
     // let final_size = u64::from_be_bytes(final_id[0..8].try_into()?);
     // for e in tree.try_iter() {
@@ -156,7 +171,6 @@ fn main() -> anyhow::Result<()> {
     // println!("{:?}", store.read(&final_id).unwrap().to_vec());
     //     let store = PagedFileStore::new()?;
     Ok(())
-
 }
 
 // Code referenced from: https://github.com/cloudpeers/radixdb/blob/master/examples/large_tree.rs
