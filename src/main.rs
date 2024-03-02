@@ -1,7 +1,7 @@
-use std::convert::TryInto;
-
 use anyhow::{Error, Ok};
 use radixdb::{store::{BlobStore, PagedFileStore}, RadixTree};
+
+use rand::{distributions::{Alphanumeric, Uniform}, Rng}; // 0.8
 
 use std::fs;
 
@@ -140,12 +140,15 @@ fn generate_test_3() -> anyhow::Result<bool> {
 
 
 fn generate_test_file(n: i64) -> anyhow::Result<bool> {
-    let path = "test.rdb";
-    let mut tree = generate_new_tree(path)?;
+    let path = format!("testnormal{}.rdb", n);
+    let mut tree = generate_new_tree(&path)?;
     for i in 0..n {
         let key = number_to_words(i);
         let value = "1";
         tree.try_insert(key, value)?;
+        if i % 100_000 == 0 {
+            tree.try_reattach()?;
+        }
     }
     let final_id = tree.try_reattach()?;
     println!("{:?}", final_id);
@@ -153,13 +156,42 @@ fn generate_test_file(n: i64) -> anyhow::Result<bool> {
 }
 
 
+fn generate_test_file_random_string(n: i64) -> anyhow::Result<bool> {
+    let path = format!("test{}.rdb", n);
+    let mut tree = generate_new_tree(&path)?;
+    for i in 0..n {
+        let key: String = rand::thread_rng()
+        .sample_iter(Uniform::new(char::from(32), char::from(126)))
+        .take(1024)
+        .map(char::from)
+        .collect();
+        let value = "1";
+        tree.try_insert(key, value)?;
+        if i % 10_000 == 0 {
+            tree.try_reattach()?;
+        }
+    }
+    let final_id = tree.try_reattach()?;
+    println!("{:?}", final_id);
+    Ok(true)
+}
+
 
 fn main() -> anyhow::Result<()> {
     // let _result = generate_test_1();
     // let _result = generate_test_2();
     // let _result = generate_test_3();
-    let _result = generate_test_file(10);
-
+    //  let _result = generate_test_file(1_000_000);
+    // let _result = generate_test_file_random_string(100_000);
+    let mut num = 1;
+    for i in 0..6 {
+        num = num * 10;
+        let _result = generate_test_file(num);
+    }
+    for i in 0..5 {
+        num = num * 10;
+        let _result = generate_test_file_random_string(num);
+    }
     // let final_size = u64::from_be_bytes(final_id[0..8].try_into()?);
     // for e in tree.try_iter() {
     //     let (k, v) = e?;
