@@ -1,9 +1,14 @@
 use anyhow::{Error, Ok};
-use radixdb::{store::{BlobStore, PagedFileStore}, RadixTree};
+use radixdb::{store::{BlobStore, MemStore, PagedFileStore}, RadixTree};
 
 use rand::{distributions::{Alphanumeric, Uniform}, Rng}; // 0.8
 
 use std::fs;
+
+use parking_lot::Mutex;
+use std::{io::Write, sync::Arc};
+#[derive(Debug, Clone)]
+pub struct VecStore(Arc<Mutex<Vec<u8>>>);
 
 const LOW_NAMES: &[&str] = &[
     "zero",
@@ -176,33 +181,92 @@ fn generate_test_file_random_string(n: i64) -> anyhow::Result<bool> {
     Ok(true)
 }
 
+fn generate_test_4() -> anyhow::Result<bool> {
+    let path = "test5_string_list.radixdb";
+    let mut tree = generate_new_tree(path)?;
+    tree.try_insert("SREDAEH", "1");
+    // tree.try_insert("helloworld1", "hi");
+    // tree.try_insert("hi", "hi");
+    let final_id = tree.try_reattach()?;
+    println!("{:?}", final_id);
+    Ok(true)
+}
+
+fn generate_bytes() {
+    let elems = (0..2_000_0).map(|i| {
+        if i % 100000 == 0 {
+            println!("{}", i);
+        }
+        (
+            i.to_string().as_bytes().to_vec(),
+            i.to_string().as_bytes().to_vec(),
+        )
+    });
+    // let t0 = Instant::now();
+    println!("building tree");
+    let _tree: RadixTree = elems.into_iter().collect();
+    println!("unattached tree {} s","hi");
+    let store = MemStore::default();
+    let mut tree = _tree.try_attached(store.clone()).unwrap();
+    let id = tree.try_reattach().unwrap();
+    println!("{:?}", store.read(&id).unwrap().to_vec());
+}
 
 fn main() -> anyhow::Result<()> {
     // let _result = generate_test_1();
     // let _result = generate_test_2();
     // let _result = generate_test_3();
+    // let _result = generate_test_4();
     //  let _result = generate_test_file(1_000_000);
     // let _result = generate_test_file_random_string(100_000);
-    let mut num = 1;
-    for i in 0..6 {
-        num = num * 10;
-        let _result = generate_test_file(num);
-    }
-    for i in 0..5 {
-        num = num * 10;
-        let _result = generate_test_file_random_string(num);
-    }
-    // let final_size = u64::from_be_bytes(final_id[0..8].try_into()?);
-    // for e in tree.try_iter() {
-    //     let (k, v) = e?;
-    //     let v = v.load(&store)?;
-    //     println!("{:?} {:?}", std::str::from_utf8(k.as_ref())?, v.len());
+    // let mut num = 1;
+    // for i in 0..6 {
+    //     num = num * 10;
+    //     let _result = generate_test_file(num);
     // }
+    // for i in 0..5 {
+    //     num = num * 10;
+    //     let _result = generate_test_file_random_string(num);
+    // }
+    // let final_size = u64::from_be_bytes(final_id[0..8].try_into()?);
+
+    // read file
+    let path = "test.radixdb";
+    let file = fs::OpenOptions::new()
+    .create(false)
+    .read(true)
+    .write(true)
+    .open(path)?;
+    let store = PagedFileStore::new(file, 1024 * 1024)?;
+    let mut tree: RadixTree<PagedFileStore> = RadixTree::try_load(store.clone(), store.last_id())?;
+    for e in tree.try_iter() {
+        let (k, v) = e?;
+        let v = v.load(&store)?;
+        println!("{:?} {:?}", std::str::from_utf8(k.as_ref())?, v.len());
+    }
     // println!("{:?}", final_id);
     // println!("final size {}", final_size);
     // println!("{:?}", store.read(&final_id).unwrap().to_vec());
-    //     let store = PagedFileStore::new()?;
+    // let store = PagedFileStore::new()?;
+    // generate_bytes();
     Ok(())
+
+
+    // create empty file
+    // let path = "test.radixdb";
+    // let file = fs::OpenOptions::new()
+    // .create(true)
+    // .read(true)
+    // .write(true)
+    // .open(path)?;
+
+    // let store = PagedFileStore::new(file, 1024 * 1024)?;
+
+    // let mut tree = RadixTree::empty(store.clone());
+    // //tree.try_insert("hi", "hello");
+
+    // tree.try_reattach()?;
+    // Ok(())
 }
 
 // Code referenced from: https://github.com/cloudpeers/radixdb/blob/master/examples/large_tree.rs
